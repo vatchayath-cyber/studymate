@@ -39,9 +39,10 @@ export default function Chat() {
   const [pending, setPending] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
+  const profileMode = profile?.mode;
   useEffect(() => {
-    if (profile?.mode) setMode(profile.mode);
-  }, [profile?.mode]);
+    if (profileMode) setMode(profileMode);
+  }, [profileMode]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });

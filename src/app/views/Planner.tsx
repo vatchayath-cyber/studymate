@@ -24,9 +24,10 @@ export default function Planner() {
   const [text, setText] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const savedText = profile?.plannerText;
   useEffect(() => {
-    if (profile?.plannerText != null && text === null) setText(profile.plannerText);
-  }, [profile?.plannerText, text]);
+    if (savedText != null && text === null) setText(savedText);
+  }, [savedText, text]);
 
   const syllabusText = (syllabus?.subjects ?? [])
     .map((s) => {

@@ -6,7 +6,7 @@ import { AppProviders, useBumpStreak, useFocus, useThemePref } from "./lib/provi
 import { MOBILE_PRIMARY, NAV_ITEMS } from "./lib/nav";
 import { cn } from "@/lib/utils";
 import { api } from "@/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   Bell,
   Flame,
@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router";
-import { toast } from "sonner";
 
 import Home from "./views/Home";
 import Chat from "./views/Chat";
