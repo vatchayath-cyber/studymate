@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { useRef, useState } from "react";
 import { FileText, Loader2, Trash2 } from "lucide-react";
 import { useBumpStreak } from "../lib/providers";
+// Let Vite emit the worker as an asset and hand us its hashed URL.
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 export default function Materials() {
   const materials = useQuery(api.library.listMaterials) ?? [];
@@ -46,10 +48,7 @@ export default function Materials() {
     }
     if (lower.endsWith(".pdf")) {
       const pdfjs = await import("pdfjs-dist");
-      pdfjs.GlobalWorkerOptions.workerPort = new Worker(
-        new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url),
-        { type: "module" },
-      );
+      pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
       const buf = await file.arrayBuffer();
       const pdf = await pdfjs.getDocument({ data: buf }).promise;
       const chunks: string[] = [];
