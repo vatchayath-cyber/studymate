@@ -133,6 +133,10 @@ export default function Profile() {
                   <Input value={v(course, profile.course)} onChange={(e) => setCourse(e.target.value)} placeholder="B.Tech CSE…" />
                 </div>
                 <div>
+                  <label className="text-xs text-muted-foreground">Department</label>
+                  <Input value={v(dept, profile.dept)} onChange={(e) => setDept(e.target.value)} placeholder="e.g. Computer Science" />
+                </div>
+                <div>
                   <label className="text-xs text-muted-foreground">Semester</label>
                   <Input value={v(sem, profile.sem)} onChange={(e) => setSem(e.target.value)} placeholder="e.g. 5" />
                 </div>

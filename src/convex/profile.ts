@@ -39,6 +39,27 @@ export const update = mutation({
   },
 });
 
+/**
+ * Pure streak rules: same day is a no-op, a consecutive day increments,
+ * any longer gap resets to 1. Extracted so it can be tested directly.
+ */
+export function nextStreak(
+  state: { streakCount?: number; streakBest?: number; streakLast?: string },
+  today: string,
+): { changed: boolean; count: number; best: number } {
+  if (state.streakLast === today) {
+    return { changed: false, count: state.streakCount ?? 0, best: state.streakBest ?? 0 };
+  }
+  let count = 1;
+  if (state.streakLast) {
+    const last = new Date(`${state.streakLast}T00:00:00`);
+    const now = new Date(`${today}T00:00:00`);
+    const diffDays = Math.round((now.getTime() - last.getTime()) / 86400000);
+    count = diffDays === 1 ? (state.streakCount ?? 0) + 1 : 1;
+  }
+  return { changed: true, count, best: Math.max(count, state.streakBest ?? 0) };
+}
+
 /** Bump the daily streak (deduped per calendar day). Returns celebration milestones hit. */
 export const bumpStreak = mutation({
   args: {},
@@ -49,22 +70,19 @@ export const bumpStreak = mutation({
     if (!user) throw new Error("No profile");
 
     const today = localDay();
-    if (user.streakLast === today) return { milestone: null as number | null };
+    const next = nextStreak(user, today);
+    if (!next.changed) return { milestone: null as number | null };
 
-    let count = 1;
-    if (user.streakLast) {
-      const last = new Date(`${user.streakLast}T00:00:00`);
-      const now = new Date(`${today}T00:00:00`);
-      const diffDays = Math.round((now.getTime() - last.getTime()) / 86400000);
-      count = diffDays === 1 ? (user.streakCount ?? 0) + 1 : 1;
-    }
-    const best = Math.max(count, user.streakBest ?? 0);
     const days = [...(user.streakDays ?? []), today].filter(Boolean).slice(-120);
-
-    await ctx.db.patch(userId, { streakCount: count, streakBest: best, streakLast: today, streakDays: days });
+    await ctx.db.patch(userId, {
+      streakCount: next.count,
+      streakBest: next.best,
+      streakLast: today,
+      streakDays: days,
+    });
 
     const milestones = [3, 7, 14, 30, 50, 100];
-    const milestone = milestones.includes(count) ? count : null;
+    const milestone = milestones.includes(next.count) ? next.count : null;
     return { milestone };
   },
 });
@@ -101,12 +119,12 @@ export const deleteMyData = mutation({
     ] as const;
     let deleted = 0;
     for (const table of tables) {
-      for (const doc of await ctx.db
-        .query(table)
-        .withIndex("by_user", (q: any) => q.eq("userId", userId))
-        .collect()) {
-        await ctx.db.delete(doc._id);
-        deleted++;
+      const rows = await ctx.db.query(table).collect();
+      for (const row of rows) {
+        if (row.userId === userId) {
+          await ctx.db.delete(row._id);
+          deleted++;
+        }
       }
     }
     await ctx.db.patch(userId, {

@@ -1,28 +1,27 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/use-auth";
 import { useFocus, useBumpStreak } from "../lib/providers";
 import { fmtMoney, pct, todayStr } from "../lib/helpers";
 import { api } from "@/convex/_generated/api";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { useNavigate } from "react-router";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Flame, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type SuggestionState =
   | { status: "idle" }
-  | { status: "loading" }
   | { status: "done"; items: string[] }
   | { status: "error"; message: string };
 
 export default function Home() {
-  const { user } = useAuth();
   const profile = useQuery(api.profile.getMy);
-  const tasks = useQuery(api.tracking.listTasks) ?? [];
-  const expenses = useQuery(api.tracking.listExpenses) ?? [];
+  const tasksQuery = useQuery(api.tracking.listTasks);
+  const expensesQuery = useQuery(api.tracking.listExpenses);
   const syllabus = useQuery(api.library.listSyllabus);
+  const tasks = useMemo(() => tasksQuery ?? [], [tasksQuery]);
+  const expenses = useMemo(() => expensesQuery ?? [], [expensesQuery]);
   const focus = useFocus();
   const bump = useBumpStreak();
   const navigate = useNavigate();
@@ -43,39 +42,48 @@ export default function Home() {
     .filter((e) => e.date.startsWith(month))
     .reduce((s, e) => s + e.amount, 0);
   const budget = profile?.monthlyBudget ?? 0;
+  const mode = profile?.mode ?? "student";
+  const streakCount = profile?.streakCount ?? 0;
+  const streakBest = profile?.streakBest ?? 0;
 
-  const days = profile?.streakDays ?? [];
-  const last7 = days.slice(-7);
+  const last7 = (profile?.streakDays ?? []).slice(-7);
 
   const [sugState, setSugState] = useState<SuggestionState>({ status: "idle" });
   const requestedRef = useRef(false);
+  const hasData = tasks.length > 0 || expenses.length > 0 || totalTopics > 0;
 
-  const loadSuggestions = useCallback(() => {
-    const hasData = tasks.length > 0 || expenses.length > 0 || totalTopics > 0;
-    if (!hasData) return;
-    setSugState({ status: "loading" });
+  // Fetch once, and only ever setState from promise callbacks (not synchronously in the effect).
+  useEffect(() => {
+    if (requestedRef.current || profile === undefined || !hasData) return;
+    requestedRef.current = true;
     const summary = [
-      `Mode: ${profile?.mode === "office" ? "office worker" : "student"}.`,
+      `Mode: ${mode === "office" ? "office worker" : "student"}.`,
       `Syllabus: ${totalTopics} topics, ${doneTopics} completed.`,
       `Tasks today: ${openTasks.length} open, ${doneTasks.length} done.`,
       budget > 0
         ? `Spent ${fmtMoney(monthSpent)} of a ${fmtMoney(budget)} monthly budget.`
         : `Spent ${fmtMoney(monthSpent)} this month, no budget set.`,
-      `Streak: ${profile?.streakCount ?? 0} days (best ${profile?.streakBest ?? 0}).`,
+      `Streak: ${streakCount} days (best ${streakBest}).`,
     ].join(" ");
-    suggest({ mode: profile?.mode === "office" ? "office" : "student", summary })
+    suggest({ mode, summary })
       .then((items) => setSugState({ status: "done", items }))
       .catch((e) => setSugState({ status: "error", message: e instanceof Error ? e.message : "Failed" }));
-  }, [suggest, profile?.mode, profile?.streakCount, profile?.streakBest, totalTopics, doneTopics, openTasks.length, doneTasks.length, budget, monthSpent, tasks.length, expenses.length]);
+  }, [
+    suggest,
+    profile,
+    hasData,
+    mode,
+    totalTopics,
+    doneTopics,
+    openTasks.length,
+    doneTasks.length,
+    budget,
+    monthSpent,
+    streakCount,
+    streakBest,
+  ]);
 
-  useEffect(() => {
-    if (requestedRef.current) return;
-    if (profile === undefined) return;
-    requestedRef.current = true;
-    loadSuggestions();
-  }, [profile, loadSuggestions]);
-
-  // Visiting Home counts as activity for today's streak (server dedupes).
+  // Visiting Home counts as activity for today's streak (server dedupes per day).
   useEffect(() => {
     bump();
   }, [bump]);
@@ -88,12 +96,12 @@ export default function Home() {
             {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-            Welcome{profile?.name ? `, ${profile.name}` : user?.email ? "" : ""}
+            Welcome{profile?.name ? `, ${profile.name}` : ""}
           </h1>
         </div>
         <div className="hidden text-right text-sm text-muted-foreground sm:block">
           <p>
-            Best streak <span className="tnum font-medium text-foreground">{profile?.streakBest ?? 0}</span>
+            Best streak <span className="tnum font-medium text-foreground">{streakBest}</span>
           </p>
           <p>
             Focus <span className="tnum font-medium text-foreground">{focus.state.minutes}m</span>
@@ -102,9 +110,9 @@ export default function Home() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate(profile?.mode === "office" ? "/app/expenses" : "/app/chat")}
+          onClick={() => navigate(mode === "office" ? "/app/expenses" : "/app/chat")}
         >
-          {profile?.mode === "office" ? "Open Expenses" : "Ask the assistant"}
+          {mode === "office" ? "Open Expenses" : "Ask the assistant"}
           <ArrowRight className="size-4" />
         </Button>
       </header>
@@ -169,7 +177,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <span className="tnum text-3xl font-semibold">{profile?.streakCount ?? 0}</span>
+              <span className="tnum text-3xl font-semibold">{streakCount}</span>
               <Flame className="size-4 self-center text-muted-foreground" />
               <span className="text-sm text-muted-foreground">days in a row</span>
             </div>
@@ -197,15 +205,15 @@ export default function Home() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {sugState.status === "idle" && (
-            <p className="text-sm text-muted-foreground">
-              Add topics, tasks or expenses — suggestions appear once there's something to work with.
-            </p>
-          )}
-          {sugState.status === "loading" && <p className="text-sm text-muted-foreground">Thinking…</p>}
-          {sugState.status === "error" && (
-            <p className="text-sm text-muted-foreground">{sugState.message}</p>
-          )}
+          {sugState.status === "idle" &&
+            (hasData ? (
+              <p className="text-sm text-muted-foreground">Thinking…</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Add topics, tasks or expenses — suggestions appear once there's something to work with.
+              </p>
+            ))}
+          {sugState.status === "error" && <p className="text-sm text-muted-foreground">{sugState.message}</p>}
           {sugState.status === "done" && (
             <>
               <ul className="space-y-2">

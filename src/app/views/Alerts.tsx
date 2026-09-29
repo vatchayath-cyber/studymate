@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Bell, CalendarClock, Flame, Wallet } from "lucide-react";
-import { addDaysStr, fmtDate, fmtMoney, pct, todayStr } from "../lib/helpers";
+import { addDaysStr, budgetLevel, fmtDate, fmtMoney, pct, todayStr } from "../lib/helpers";
 
 type Alert = {
   icon: "task" | "exam" | "budget" | "revision" | "streak";
@@ -54,13 +54,21 @@ export default function Alerts() {
   const budget = profile?.monthlyBudget ?? 0;
   const month = today.slice(0, 7);
   const spent = expenses.filter((e) => e.date.startsWith(month)).reduce((s, e) => s + e.amount, 0);
-  if (budget > 0) {
-    const p = pct(spent, budget);
-    if (p >= 100) {
-      alerts.push({ icon: "budget", title: "Monthly budget exceeded", detail: `Spent ${fmtMoney(spent)} of ${fmtMoney(budget)} (${p}%)`, tone: "danger" });
-    } else if (p >= 70) {
-      alerts.push({ icon: "budget", title: "Approaching budget limit", detail: `${p}% of ${fmtMoney(budget)} used`, tone: "warn" });
-    }
+  const level = budgetLevel(spent, budget);
+  if (level === "over") {
+    alerts.push({
+      icon: "budget",
+      title: "Monthly budget exceeded",
+      detail: `Spent ${fmtMoney(spent)} of ${fmtMoney(budget)} (${pct(spent, budget)}%)`,
+      tone: "danger",
+    });
+  } else if (level === "near" || level === "watch") {
+    alerts.push({
+      icon: "budget",
+      title: "Approaching budget limit",
+      detail: `${pct(spent, budget)}% of ${fmtMoney(budget)} used`,
+      tone: "warn",
+    });
   }
 
   const revision = (syllabus?.topics ?? []).filter((t) => t.status === "Needs Revision");

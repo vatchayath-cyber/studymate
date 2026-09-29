@@ -28,7 +28,8 @@ function monthMatrix(year: number, month: number): (string | null)[][] {
 }
 
 export default function CalendarView() {
-  const tasks = useQuery(api.tracking.listTasks) ?? [];
+  const tasksQuery = useQuery(api.tracking.listTasks);
+  const tasks = useMemo(() => tasksQuery ?? [], [tasksQuery]);
   const add = useMutation(api.tracking.addTask);
   const toggle = useMutation(api.tracking.setTaskDone);
   const remove = useMutation(api.tracking.deleteTask);

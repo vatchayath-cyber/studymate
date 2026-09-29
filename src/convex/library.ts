@@ -1,8 +1,10 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
-async function uid(ctx: any) {
+async function uid(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx);
   if (userId === null) throw new Error("Not signed in");
   return userId;
@@ -170,9 +172,9 @@ export const bulkImport = mutation({
   handler: async (ctx, { text }) => {
     const userId = await uid(ctx);
     const lines = text.split(/\r?\n/);
-    let subjectId: any = null;
-    let unitId: any = null;
-    let counts = { subjects: 0, units: 0, topics: 0 };
+    let subjectId: Id<"subjects"> | null = null;
+    let unitId: Id<"units"> | null = null;
+    const counts = { subjects: 0, units: 0, topics: 0 };
     for (const raw of lines) {
       const line = raw.trim();
       if (!line) continue;
@@ -191,7 +193,7 @@ export const bulkImport = mutation({
         }
       } else if (line.startsWith("- ")) {
         const title = line.slice(2).trim();
-        if (unitId && title) {
+        if (unitId && subjectId && title) {
           await ctx.db.insert("topics", { userId, subjectId, unitId, title, status: "Not Started", createdAt: Date.now() });
           counts.topics++;
         } else if (subjectId && title) {

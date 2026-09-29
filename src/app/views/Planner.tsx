@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBumpStreak } from "../lib/providers";
@@ -21,13 +21,11 @@ export default function Planner() {
 
   const [horizon, setHorizon] = useState<Horizon>("daily");
   const [notes, setNotes] = useState("");
-  const [text, setText] = useState<string | null>(null);
+  const [draft, setDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const savedText = profile?.plannerText;
-  useEffect(() => {
-    if (savedText != null && text === null) setText(savedText);
-  }, [savedText, text]);
+  // Derived, not synced: locally generated/edited text wins, otherwise the saved plan.
+  const text = draft ?? profile?.plannerText ?? null;
 
   const syllabusText = (syllabus?.subjects ?? [])
     .map((s) => {
@@ -50,7 +48,7 @@ export default function Planner() {
         materials: materials.map((m) => ({ title: m.title, text: m.text ?? "" })),
         extraNotes: notes.trim() || undefined,
       });
-      setText(plan);
+      setDraft(plan);
       await savePlan({ text: plan });
       bump();
       toast.success("Plan generated — edit freely below");
@@ -130,7 +128,7 @@ export default function Planner() {
             </div>
           </CardHeader>
           <CardContent>
-            <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={16} className="font-mono text-[13px] leading-6" />
+            <Textarea value={text} onChange={(e) => setDraft(e.target.value)} rows={16} className="font-mono text-[13px] leading-6" />
           </CardContent>
         </Card>
       )}

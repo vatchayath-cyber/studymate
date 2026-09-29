@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
@@ -58,7 +58,7 @@ export default function Materials() {
         const content = await page.getTextContent();
         chunks.push(
           content.items
-            .map((it: any) => ("str" in it ? it.str : ""))
+            .map((it) => ("str" in it ? it.str : ""))
             .join(" ")
             .replace(/\s+/g, " ")
             .trim(),

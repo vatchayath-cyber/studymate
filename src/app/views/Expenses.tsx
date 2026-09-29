@@ -8,21 +8,22 @@ import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fmtMoney, pct, todayStr } from "../lib/helpers";
+import { budgetLevel, fmtMoney, pct, todayStr, type BudgetLevel } from "../lib/helpers";
 import { useBumpStreak } from "../lib/providers";
 
-/** 🟢🟡🟠🔴 threshold dot for spend vs limit. */
-function usageDot(used: number, limit: number): { dot: string; label: string } {
-  const p = pct(used, limit);
-  if (p >= 100) return { dot: "bg-red-500", label: "over" };
-  if (p >= 85) return { dot: "bg-orange-400", label: "near limit" };
-  if (p >= 70) return { dot: "bg-yellow-400", label: "watch" };
-  return { dot: "bg-emerald-500", label: "ok" };
-}
+/** Threshold dot for spend vs limit (levels come from the shared helper). */
+const DOT_BY_LEVEL: Record<BudgetLevel, string> = {
+  ok: "bg-emerald-500",
+  watch: "bg-yellow-400",
+  near: "bg-orange-400",
+  over: "bg-red-500",
+};
 
 export default function Expenses() {
-  const expenses = useQuery(api.tracking.listExpenses) ?? [];
-  const categories = useQuery(api.tracking.listCategories) ?? [];
+  const expensesQuery = useQuery(api.tracking.listExpenses);
+  const categoriesQuery = useQuery(api.tracking.listCategories);
+  const expenses = useMemo(() => expensesQuery ?? [], [expensesQuery]);
+  const categories = useMemo(() => categoriesQuery ?? [], [categoriesQuery]);
   const budgets = useQuery(api.tracking.listBudgets) ?? [];
   const profile = useQuery(api.profile.getMy);
   const add = useMutation(api.tracking.addExpense);
@@ -255,12 +256,12 @@ export default function Expenses() {
           {catNames.map((name) => {
             const limit = budgets.find((b) => b.category === name)?.limitAmount ?? 0;
             const spent = spentByCat[name] ?? 0;
-            const info = usageDot(spent, limit);
+            const level = budgetLevel(spent, limit);
             return (
               <Card key={name}>
                 <CardContent className="py-4">
                   <div className="flex items-center gap-2">
-                    <span className={cn("size-2 rounded-full", limit > 0 ? info.dot : "bg-border")} />
+                    <span className={cn("size-2 rounded-full", limit > 0 ? DOT_BY_LEVEL[level] : "bg-border")} />
                     <p className="min-w-0 flex-1 truncate text-sm font-medium">{name}</p>
                     <span className="tnum text-sm">{fmtMoney(spent)}</span>
                     {limit > 0 && <span className="tnum text-xs text-muted-foreground">/ {fmtMoney(limit)}</span>}

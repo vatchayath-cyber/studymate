@@ -32,17 +32,15 @@ export default function Chat() {
   const clear = useMutation(api.chat.clear);
   const ask = useAction(api.ai.chat);
 
-  const [mode, setMode] = useState<Mode>("student");
+  const [modeOverride, setModeOverride] = useState<Mode | null>(null);
   const [level, setLevel] = useState<Level>("medium");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
-  const profileMode = profile?.mode;
-  useEffect(() => {
-    if (profileMode) setMode(profileMode);
-  }, [profileMode]);
+  // Derived, not synced: the profile is the default until the user toggles here.
+  const mode: Mode = modeOverride ?? profile?.mode ?? "student";
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -85,7 +83,7 @@ export default function Chat() {
             {(["student", "office"] as Mode[]).map((m) => (
               <button
                 key={m}
-                onClick={() => setMode(m)}
+                onClick={() => setModeOverride(m)}
                 className={cn(
                   "px-3 py-1 capitalize text-muted-foreground first:rounded-l-md last:rounded-r-md",
                   mode === m && "bg-foreground text-background",

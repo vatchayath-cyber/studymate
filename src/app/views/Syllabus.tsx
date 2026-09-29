@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -8,7 +8,6 @@ import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { pct } from "../lib/helpers";
 import { useBumpStreak } from "../lib/providers";
 

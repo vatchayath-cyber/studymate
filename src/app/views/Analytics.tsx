@@ -6,8 +6,10 @@ import { fmtMoney, pct, todayStr } from "../lib/helpers";
 import { cn } from "@/lib/utils";
 
 export default function Analytics() {
-  const expenses = useQuery(api.tracking.listExpenses) ?? [];
+  const expensesQuery = useQuery(api.tracking.listExpenses);
+  const expenses = useMemo(() => expensesQuery ?? [], [expensesQuery]);
   const profile = useQuery(api.profile.getMy);
+  const monthlyBudget = profile?.monthlyBudget ?? 0;
 
   const today = todayStr();
   const weekStart = (() => {
@@ -58,17 +60,17 @@ export default function Analytics() {
     if (byCategory.length > 0) {
       lines.push(`${byCategory[0][0]} is your top category so far — ${fmtMoney(byCategory[0][1])} this month.`);
     }
-    if (profile?.monthlyBudget && totals.mo > 0) {
-      const p = pct(totals.mo, profile.monthlyBudget);
+    if (monthlyBudget > 0 && totals.mo > 0) {
+      const p = pct(totals.mo, monthlyBudget);
       lines.push(
         p >= 100
           ? `You've crossed your monthly budget (${p}%). Consider trimming non-essentials.`
-          : `You've used ${p}% of your monthly budget — ${fmtMoney(profile.monthlyBudget - totals.mo)} left for ${monthDays - daysElapsed} days.`,
+          : `You've used ${p}% of your monthly budget — ${fmtMoney(monthlyBudget - totals.mo)} left for ${monthDays - daysElapsed} days.`,
       );
     }
     if (lines.length === 0) lines.push("Add a few expenses to see insights here.");
     return lines;
-  }, [totals, byCategory, profile?.monthlyBudget, today]);
+  }, [totals, byCategory, monthlyBudget, today]);
 
   const max7 = Math.max(...last7.map((d) => d.total), 1);
   const maxCat = Math.max(...byCategory.map(([, v]) => v), 1);

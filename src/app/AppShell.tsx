@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { useAuth } from "@/hooks/use-auth";
 import { AppProviders, useBumpStreak, useFocus, useThemePref } from "./lib/providers";
 import { MOBILE_PRIMARY, NAV_ITEMS } from "./lib/nav";
+import { budgetLevel } from "./lib/helpers";
 import { cn } from "@/lib/utils";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
@@ -65,7 +66,7 @@ function useAlertCount() {
     const spent = expenses
       .filter((e) => e.date.startsWith(month))
       .reduce((s, e) => s + e.amount, 0);
-    if (spent >= budget * 0.7) count += 1;
+    if (budgetLevel(spent, budget) !== "ok") count += 1;
   }
   if (topics) {
     count += topics.topics.filter((t) => t.status === "Needs Revision").length;
@@ -197,7 +198,6 @@ function MoreSheet() {
 }
 
 function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  const { slug } = useParams();
   const groups = ["Study", "Life", "Account"] as const;
   return (
     <aside
@@ -250,7 +250,7 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
   );
 }
 
-function TopBar({ collapsed }: { collapsed: boolean }) {
+function TopBar() {
   const { user, signOut } = useAuth();
   const profile = useQuery(api.profile.getMy);
   const alerts = useAlertCount();
@@ -262,10 +262,7 @@ function TopBar({ collapsed }: { collapsed: boolean }) {
   };
 
   return (
-    <header
-      className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur"
-      style={{ paddingLeft: collapsed ? undefined : undefined }}
-    >
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur">
       <div className="flex items-center gap-2 md:hidden">
         <span className="grid size-6 place-items-center rounded bg-foreground text-[11px] font-bold text-background">S</span>
         <span className="font-semibold tracking-tight">StudyMate</span>
@@ -346,7 +343,7 @@ function Shell() {
     <div className="min-h-screen bg-background">
       <Sidebar collapsed={collapsed} onToggle={toggleCollapsed} />
       <div className={cn("transition-[padding] duration-200", collapsed ? "md:pl-14" : "md:pl-52")}>
-        <TopBar collapsed={collapsed} />
+        <TopBar />
         <main className="mx-auto w-full max-w-4xl px-4 py-6 pb-24 md:pb-10">
           <View />
         </main>

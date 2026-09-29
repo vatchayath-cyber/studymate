@@ -26,3 +26,15 @@ export function pct(part: number, total: number): number {
   if (!total) return 0;
   return Math.round((part / total) * 100);
 }
+
+/** Budget alert level. Thresholds: 100% = over, 85% = near, 70% = watch. */
+export type BudgetLevel = "ok" | "watch" | "near" | "over";
+
+export function budgetLevel(used: number, limit: number): BudgetLevel {
+  if (limit <= 0) return "ok";
+  const p = pct(used, limit);
+  if (p >= 100) return "over";
+  if (p >= 85) return "near";
+  if (p >= 70) return "watch";
+  return "ok";
+}

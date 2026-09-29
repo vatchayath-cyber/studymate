@@ -5,10 +5,25 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 
-type Mode = "student" | "office";
 type Level = "easy" | "medium" | "detailed";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null;
+}
+
+/** Accepts a top-level array or a record wrapping one under any of the given keys. */
+function extractArray(value: unknown, ...keys: string[]): unknown[] | null {
+  if (Array.isArray(value)) return value;
+  if (isRecord(value)) {
+    for (const key of keys) {
+      const inner = value[key];
+      if (Array.isArray(inner)) return inner;
+    }
+  }
+  return null;
+}
 
 function levelInstruction(level: Level): string {
   if (level === "easy")
@@ -51,8 +66,8 @@ function materialsBlock(mats: { title: string; text?: string }[]): string {
   return `\n\nThe user has uploaded these study materials. Use them to ground your answer when relevant:\n\n${parts.join("\n\n")}`;
 }
 
-/** One retry: if a JSON parse fails, ask the model to fix its output. */
-function parseJsonLoose(raw: string): any {
+/** Parse a model response that should be JSON, tolerating code fences and stray prose. */
+function parseJsonLoose(raw: string): unknown {
   const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
   try {
     return JSON.parse(cleaned);
@@ -74,7 +89,7 @@ async function complete(messages: { role: "system" | "user" | "assistant"; conte
   if (!res.success || !res.data) {
     throw new Error(res.error || "AI request failed");
   }
-  const content = (res.data as any)?.choices?.[0]?.message?.content;
+  const content = res.data.choices[0]?.message?.content;
   if (typeof content !== "string" || !content.trim()) throw new Error("AI returned an empty response");
   return content;
 }
@@ -121,9 +136,9 @@ export const importantTopics = action({
     const user =
       `Syllabus:\n${args.syllabus.slice(0, 12_000)}` + materialsBlock(args.materials);
 
-    let parsed: any;
+    let arr: unknown[] | null = null;
     try {
-      parsed = parseJsonLoose(await complete([{ role: "system", content: sys }, { role: "user", content: user }]));
+      arr = extractArray(parseJsonLoose(await complete([{ role: "system", content: sys }, { role: "user", content: user }])), "topics", "items");
     } catch {
       const retry = await complete([
         { role: "system", content: sys },
@@ -131,16 +146,15 @@ export const importantTopics = action({
         { role: "assistant", content: "I could not parse my previous output." },
         { role: "user", content: "Return ONLY the JSON array now." },
       ]);
-      parsed = parseJsonLoose(retry);
+      arr = extractArray(parseJsonLoose(retry), "topics", "items");
     }
-    const arr = Array.isArray(parsed) ? parsed : parsed?.topics ?? parsed?.items;
-    if (!Array.isArray(arr)) throw new Error("Unexpected AI response shape");
+    if (!arr) throw new Error("Unexpected AI response shape");
     const items = arr
-      .filter((x: any) => x && typeof x.topic === "string")
+      .filter((x): x is UnknownRecord => isRecord(x) && typeof x.topic === "string")
       .slice(0, 14)
-      .map((x: any) => ({
+      .map((x) => ({
         topic: String(x.topic).slice(0, 200),
-        priority: x.priority === "High" ? "High" : x.priority === "Low" ? "Low" : "Medium",
+        priority: x.priority === "High" ? ("High" as const) : x.priority === "Low" ? ("Low" as const) : ("Medium" as const),
         reason: String(x.reason ?? "").slice(0, 300),
       }));
     if (items.length === 0) throw new Error("AI returned no usable topics");
@@ -195,9 +209,9 @@ export const suggestions = action({
     const sys =
       `You give three crisp next-step suggestions to ${role} based on their data. ` +
       'Return ONLY a JSON array of exactly 3 strings, each under 140 characters, concrete and specific. No numbering.';
-    let parsed: any;
+    let arr: unknown[] | null = null;
     try {
-      parsed = parseJsonLoose(await complete([{ role: "system", content: sys }, { role: "user", content: args.summary.slice(0, 6_000) }]));
+      arr = extractArray(parseJsonLoose(await complete([{ role: "system", content: sys }, { role: "user", content: args.summary.slice(0, 6_000) }])), "suggestions");
     } catch {
       const retry = await complete([
         { role: "system", content: sys },
@@ -205,11 +219,10 @@ export const suggestions = action({
         { role: "assistant", content: "I could not parse my previous output." },
         { role: "user", content: "Return ONLY the JSON array of 3 strings now." },
       ]);
-      parsed = parseJsonLoose(retry);
+      arr = extractArray(parseJsonLoose(retry), "suggestions");
     }
-    const arr = Array.isArray(parsed) ? parsed : parsed?.suggestions;
-    if (!Array.isArray(arr)) throw new Error("Unexpected AI response shape");
-    const items = arr.filter((x: any) => typeof x === "string").slice(0, 3).map((s: string) => s.slice(0, 200));
+    if (!arr) throw new Error("Unexpected AI response shape");
+    const items = arr.filter((x): x is string => typeof x === "string").slice(0, 3).map((s) => s.slice(0, 200));
     if (items.length === 0) throw new Error("AI returned no suggestions");
     return items;
   },
